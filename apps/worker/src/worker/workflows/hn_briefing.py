@@ -5,7 +5,6 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
 import pydantic
 
 import mistralai.workflows as workflows
@@ -145,6 +144,8 @@ def audio_filename(now: datetime) -> str:
 
 @workflows.activity(start_to_close_timeout=timedelta(minutes=2))
 async def fetch_frontpage_stories(fetch_limit: int) -> list[Story]:
+    import httpx
+
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         response = await client.get(HN_FRONTPAGE_URL)
         response.raise_for_status()
