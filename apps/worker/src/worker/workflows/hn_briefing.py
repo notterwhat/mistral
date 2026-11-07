@@ -28,7 +28,7 @@ TTS_MODEL = "voxtral-mini-tts-3-0"
 TTS_VOICE_ID = "gb_jane_neutral"
 
 FETCH_LIMIT = 30
-HTTP_TIMEOUT = timedelta(seconds=30)
+HTTP_TIMEOUT_SECONDS = 30.0
 
 
 class HNBriefingInput(pydantic.BaseModel):
@@ -146,7 +146,7 @@ def audio_filename(now: datetime) -> str:
 async def fetch_frontpage_stories(fetch_limit: int) -> list[Story]:
     import httpx
 
-    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         response = await client.get(HN_FRONTPAGE_URL)
         response.raise_for_status()
         item_ids = response.json()[:fetch_limit]
