@@ -140,6 +140,15 @@ def audio_filename(now: datetime) -> str:
     return f"hn-tech-briefing-{now:%Y%m%d-%H%M%S}.mp3"
 
 
+@workflows.activity(start_to_close_timeout=timedelta(minutes=1))
+async def build_briefing_meta() -> dict[str, str]:
+    now = datetime.now(timezone.utc)
+    return {
+        "filename": audio_filename(now),
+        "subject": f"Hacker News Tech Briefing - {now:%Y-%m-%d}",
+    }
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=2))
 async def fetch_frontpage_stories(fetch_limit: int) -> list[Story]:
     import httpx
@@ -270,9 +279,10 @@ class HNTechBriefingWorkflow:
         briefing = await summarize_tech_news(stories, input.max_stories)
         audio_base64 = await generate_podcast_audio(briefing.podcast_script)
         audio_bytes = len(base64.b64decode(audio_base64))
-        filename = audio_filename(datetime.now(timezone.utc))
+        meta = await build_briefing_meta()
+        filename = meta["filename"]
+        subject = meta["subject"]
         drive_file = await upload_audio_to_drive(audio_base64, filename)
-        subject = f"Hacker News Tech Briefing - {datetime.now(timezone.utc):%Y-%m-%d}"
         sent = await send_briefing_email(
             input.to_email, subject, briefing.summary_md, drive_file["url"], filename
         )
