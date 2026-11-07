@@ -62,12 +62,8 @@ class HNBriefingOutput(pydantic.BaseModel):
     sent_message_id: str | None
 
 
-def _tool_result_as_dict(result: Any) -> dict[str, Any]:
-    if isinstance(result, dict):
-        return result
-    if hasattr(result, "model_dump"):
-        return result.model_dump()
-    content = getattr(result, "content", None)
+def _unwrap_mcp_content(payload: Any) -> dict[str, Any] | None:
+    content = payload.get("content") if isinstance(payload, dict) else getattr(payload, "content", None)
     if isinstance(content, list):
         for part in content:
             text = part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
@@ -77,7 +73,18 @@ def _tool_result_as_dict(result: Any) -> dict[str, Any]:
                     if isinstance(parsed, dict):
                         return parsed
                 except (json.JSONDecodeError, TypeError):
-                    pass
+                    continue
+    return None
+
+
+def _tool_result_as_dict(result: Any) -> dict[str, Any]:
+    unwrapped = _unwrap_mcp_content(result)
+    if unwrapped is not None:
+        return unwrapped
+    if isinstance(result, dict):
+        return result
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
     return {"raw": str(result)}
 
 
