@@ -7,6 +7,7 @@ from worker.workflows.hn_briefing import (
     HNBriefingInput,
     Story,
     _extract_json_object,
+    _tool_result_as_dict,
     audio_filename,
     build_email_body,
     build_selection_prompt,
@@ -80,6 +81,15 @@ def test_input_defaults():
 def test_briefing_model_roundtrip():
     b = Briefing(selected=[{"index": 0}], summary_md="s", podcast_script="p")
     assert json.loads(b.model_dump_json())["podcast_script"] == "p"
+
+
+def test_tool_result_unwraps_mcp_content():
+    inner = '{"id": "abc", "view_url": "https://drive.google.com/file/d/abc/view"}'
+    assert _tool_result_as_dict({"content": [{"text": inner}]})["id"] == "abc"
+
+
+def test_tool_result_passthrough_plain_dict():
+    assert _tool_result_as_dict({"id": "xyz"}) == {"id": "xyz"}
 
 
 def test_workflow_is_discoverable():
