@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import json
 import re
@@ -19,8 +18,7 @@ from mistralai.workflows.plugins.mistralai.connectors import (
 gmail_connector = connector("gmail")
 drive_connector = connector("google_drive_mcp")
 
-HN_FRONTPAGE_URL = "https://hacker-news.firebaseio.com/v0/frontpage.json"
-HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{item_id}.json"
+HN_FRONTPAGE_URL = "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage={limit}"
 HN_STORY_URL = "https://news.ycombinator.com/item?id={item_id}"
 
 SUMMARY_MODEL = "mistral-medium-latest"
@@ -147,34 +145,26 @@ async def fetch_frontpage_stories(fetch_limit: int) -> list[Story]:
     import httpx
 
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-        response = await client.get(HN_FRONTPAGE_URL)
+        response = await client.get(HN_FRONTPAGE_URL.format(limit=fetch_limit))
         response.raise_for_status()
-        item_ids = response.json()[:fetch_limit]
-
-        async def fetch_item(item_id: int) -> dict[str, Any] | None:
-            try:
-                item_response = await client.get(HN_ITEM_URL.format(item_id=item_id))
-                item_response.raise_for_status()
-                return item_response.json()
-            except httpx.HTTPError:
-                return None
-
-        items = [item for item in await asyncio.gather(*(fetch_item(i) for i in item_ids)) if item]
+        hits = response.json().get("hits", [])
 
     stories = []
-    for position, item in enumerate(items):
-        if item.get("type") != "story" or not item.get("title"):
+    for hit in hits:
+        title = hit.get("title")
+        if not title:
             continue
+        item_id = int(hit["objectID"])
         stories.append(
             Story(
                 index=len(stories),
-                item_id=item["id"],
-                title=item["title"],
-                url=item.get("url"),
-                story_url=HN_STORY_URL.format(item_id=item["id"]),
-                by=item.get("by"),
-                score=item.get("score"),
-                descendants=item.get("descendants"),
+                item_id=item_id,
+                title=title,
+                url=hit.get("url"),
+                story_url=HN_STORY_URL.format(item_id=item_id),
+                by=hit.get("author"),
+                score=hit.get("points"),
+                descendants=hit.get("num_comments"),
             )
         )
     return stories
